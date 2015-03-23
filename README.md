@@ -2,6 +2,7 @@
 
 ## Compiling
 Compile with `make`
+
 Compile debug with `make debug`
 
 ## Running 
