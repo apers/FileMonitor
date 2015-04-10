@@ -4,6 +4,7 @@
 
 #include "mon.h"
 #include "watcher.h"
+#include "runner.h"
 
 
 /* Options struct */
@@ -26,7 +27,15 @@ int main(int argc, char** argv) {
         }
     }
 
+    /* Init runner */
+    runner_init(opts.command);
+
     /* Go into the watcher loop */
+    printf("Listening on files: ");
+    for (int i = 0; i < opts.num_files; i++) {
+        printf("%s ", opts.files[i]);
+    }
+    printf("\n");
     watcher_loop();
 
     return 0;
@@ -36,6 +45,7 @@ int main(int argc, char** argv) {
 void watcher_loop() {
     while(1) {
         watcher_listen();
+        runner_run();
     }
 }
 

@@ -3,8 +3,14 @@
 
 #include "watcher.h"
 
+/* Inotify file descriptor */
 int fd;
+
+/* Event buffer  */
 char buffer[BUFFER_SIZE];
+
+/* ID to name  */
+struct nameid file_list[MAX_FILES];
 
 /* Initalizes the watcher  */
 int watcher_init() {
@@ -13,6 +19,12 @@ int watcher_init() {
     if( fd == -1 ) {
         perror("init_watcher");
         return -1;
+    }
+
+    /* Init id to name translation buffer */
+    for (int i = 0; i < MAX_FILES; i++) {
+        file_list[i].id = 0;
+        file_list[i].name = NULL;
     }
 
     return 0;
@@ -28,7 +40,31 @@ int watcher_add(char* filename) {
         perror("");
         return -1;
     } else {
-        printf("Added file: %s(%d)\n", filename, ret);
+        /* Add to translation buffer */
+        for (int i = 0; i < MAX_FILES; i++) {
+            if( file_list[i].name == NULL ) {
+                file_list[i].name = filename;
+                file_list[i].id = ret;
+#ifdef DEBUG
+                printf("Added file: %s(%d) at %d\n", filename, ret, i);
+#endif
+                break;
+            }
+        }
+
+    }
+
+    return 0;
+}
+
+/* Removes a target from the watcher */
+int watcher_remove(int wd) {
+    int ret = inotify_rm_watch(fd, wd);
+
+    if( ret == -1 ) {
+        fprintf(stderr, "watcher_remove - %d: ", wd);
+        perror("");
+        return -1;
     }
 
     return 0;
@@ -42,9 +78,7 @@ void watcher_listen() {
     struct inotify_event *event;
 
     /* Wait for event   */
-    printf("block\n");
     length = read(fd, buffer, BUFFER_SIZE);
-    printf("go\n");
 
     /* Go through events */
     while( bytes_read < length ) {
@@ -54,7 +88,15 @@ void watcher_listen() {
         if(event->mask == IN_CLOSE_WRITE) {
             printf("Modify\n");
         } else if(event->mask == IN_DELETE_SELF) {
-            printf("Deleted\n");
+            for (int i = 0; i < MAX_FILES; i++) {
+                if( file_list[i].id == event->wd ) {
+                    watcher_add(file_list[i].name);
+                    file_list[i].id = 0;
+                    file_list[i].name = NULL;
+                    break;
+                }
+            }
+            printf("Modify\n");
         }
 
         /* Get next event */
